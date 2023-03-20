@@ -29,13 +29,15 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"sync"
 
 	"golang.org/x/exp/slices"
 )
 
-var ( // 아래 변수들을 const 로 선언하고 싶지만 지원하지 않음
+// 임시 데이터
+var (
 	Places       = []string{"B1", "1", "Out"}
 	Styles       = []string{"C", "A", "K", "J"}
 	F_Categories = []string{"rice", "noodle", "fastfood", "strew"}
@@ -53,7 +55,7 @@ type Customer interface {
 	Customize(interface{}) *FOTD // <- 수동 선택
 }
 
-type Backend struct {
+type Backend struct { // 백엔드팀 객체,  ... 프론트팀, 기획팀 ...
 	Name    string
 	Emp_num string
 	Menu    *FOTD
@@ -74,7 +76,8 @@ func (b *Backend) Recommand() *FOTD {
 	return fotd
 }
 func (b *Backend) Customize(order interface{}) *FOTD { // int, []string
-	var P_ch, S_ch chan interface{} // main Local
+	P_ch := make(chan interface{})
+	S_ch := make(chan interface{})
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go b.Menu.SelectPlace(order, P_ch, &wg)
@@ -87,30 +90,32 @@ func (b *Backend) Customize(order interface{}) *FOTD { // int, []string
 }
 
 func (f *FOTD) SelectPlace(order interface{}, P_ch chan interface{}, wg *sync.WaitGroup) error {
-	// 숫자로 입력받거나 문자열 여러개로 입력 ( 입력받지 못한 부분은 임의로 추천 )  (문자열 여러개는 문자열 슬라이스로 캐스팅)
-	// 3자리 이하의 숫자 및 문자열 슬라이스만 입력 가능 / 문자열 중 선택지 목록에 없는 경우 추천
-
-	// if len(order) < 1 && len(order) > 3 {
-	// 	// Err_Code 1
-	// }
+	// 숫자로 입력받거나 문자열 여러개로 입력 ( )  (문자열 여러개는 문자열 슬라이스로 캐스팅)
+	// 3자리 이하의 숫자 및 문자열 슬라이스만 입력 가능 / (입력받지 못한 부분은 임의로 추천 ,문자열 중 선택지 목록에 없는 경우 추천_(미구현)))
+	// 0_0_0   [Place_Style_F-category]
 
 	switch order.(type) {
-	case int: // 3자리 수 확인 및 len(Places) 이외의 값 처리
+	case int: // 3자리 수 확인
 		if int(order.(int)/1000) > 0 {
 			// Err_Code 1
 			return errors.New("occured error 1")
 		}
 		var Place_num = int(order.(int) / 100) // 첫 번째 숫자 (0)
-		var Mod_num = int(order.(int) % 100)   // 첫 번째 숫자를 제외한 나머지 숫자 (00)
+		// log.Panicf("RandomPick : %v", Places[RandomPick(Places)])
+		// log.Panicf("Place_num : %v", Place_num)
+		// log.Panicf("Place Num : %v", Places[Place_num%len(Places)])
+		// log.Panicf("Order info : %v", order)
+
+		var Mod_num = int(order.(int) % 100) // 첫 번째 숫자를 제외한 나머지 숫자 (00)
 
 		if Place_num == 0 || Place_num > len(Places) { // 0 이거나 len(Places) 이상 경우 선택장애로 판단,  추천
-			f.Place = Places[RandomPick(Places)]
+			f.Place = Places[RandomPick(Places)] // nil pointer | invalid memory addr . 빈값에 접근
 			P_ch <- Mod_num
 			wg.Done()
 			return nil
 		}
-
 		f.Place = Places[Place_num%len(Places)]
+
 		P_ch <- Mod_num
 		wg.Done()
 		return nil
@@ -126,8 +131,10 @@ func (f *FOTD) SelectPlace(order interface{}, P_ch chan interface{}, wg *sync.Wa
 		return nil
 	case interface{}:
 		// Err_Code 1
+		wg.Done()
 		return errors.New("occured error 2")
 	}
+	wg.Done()
 	return errors.New("occured error 3")
 }
 
@@ -197,7 +204,8 @@ func main() {
 	ryu := &Backend{
 		Name:    "RYU",
 		Emp_num: "12303510",
+		Menu:    &FOTD{},
 	}
 	RandomPlay(ryu)
-
+	fmt.Println(*ryu.Menu)
 }
